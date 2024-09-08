@@ -55,6 +55,7 @@ export async function GET(req: NextRequest) {
   const origin = params.get("origin") || null;
   const originalOrigin = req.nextUrl.origin;
   const recordingMode: "hls" | null = params.get("recordingMode") as any;
+  const videoId = params.get("videoId") as any;
 
   console.log("cookies:", cookies().getAll());
 
@@ -75,7 +76,7 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  const id = nanoId();
+  const id = videoId || nanoId();
   const date = new Date();
   const formattedDate = `${date.getDate()} ${date.toLocaleString("default", {
     month: "long",

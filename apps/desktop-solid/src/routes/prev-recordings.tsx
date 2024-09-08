@@ -91,6 +91,25 @@ export default function () {
                 },
               }));
 
+              const uploadVideo = createMutation(() => ({
+                mutationFn: async () => {
+                  try {
+                    console.log("starting");
+                    await commands.uploadRenderedVideo(
+                      videoId,
+                      presets.getDefaultConfig() ?? DEFAULT_PROJECT_CONFIG
+                    );
+                    console.log("done");
+                  } catch (error) {
+                    console.error("Failed to upload video", error);
+                    window.alert("Failed to get shareable link");
+                  } finally {
+                    // ? some sort of cleanup here?
+                    console.log("the end");
+                  }
+                },
+              }));
+
               const saveVideo = createMutation(() => ({
                 mutationFn: async () => {
                   try {
@@ -264,14 +283,31 @@ export default function () {
                             </Switch>
                           </TooltipIconButton>
                           <TooltipIconButton
-                            class="absolute right-3 bottom-3"
-                            tooltipText="Create Shareable Link"
+                            class="absolute right-3 bottom-3 z-20"
+                            tooltipText={uploadVideo.isPending ? "Uploading Cap" : "Create Shareable Link"}
+                            forceOpen={uploadVideo.isPending}
                             tooltipPlacement="left"
-                            onClick={async () => {
-                              // Implement shareable link functionality here
-                            }}
+                            onClick={() => uploadVideo.mutate()}
+                            disabled={uploadVideo.isPending}
                           >
-                            <IconCapUpload class="size-[1rem]" />
+                            <Switch
+                              fallback={<IconCapUpload class="size-[1rem]" />}
+                            >
+                              <Match when={uploadVideo.isPending}>
+                                <IconLucideLoaderCircle class="size-[1rem] animate-spin" />
+                              </Match>
+                              <Match when={uploadVideo.isSuccess}>
+                                {(_) => {
+                                  setTimeout(() => {
+                                    if (!uploadVideo.isPending) uploadVideo.reset();
+                                  }, 2000);
+
+                                  return (
+                                    <IconLucideCheck class="size-[1rem]" />
+                                  );
+                                }}
+                              </Match>
+                            </Switch>
                           </TooltipIconButton>
                           <div class="absolute inset-0 flex items-center justify-center">
                             <Button

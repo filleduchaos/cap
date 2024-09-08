@@ -109,6 +109,14 @@ async copyRenderedVideoToClipboard(videoId: string, project: ProjectConfiguratio
     else return { status: "error", error: e  as any };
 }
 },
+async uploadRenderedVideo(videoId: string, project: ProjectConfiguration) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("upload_rendered_video", { videoId, project }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async getVideoMetadata(videoId: string, videoType: VideoType | null) : Promise<Result<[number, number], string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("get_video_metadata", { videoId, videoType }) };

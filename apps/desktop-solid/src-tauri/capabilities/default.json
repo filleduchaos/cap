@@ -21,6 +21,8 @@
     "fs:default",
     "dialog:allow-save",
     "store:default",
-    "process:default"
+    "process:default",
+    "oauth:allow-start",
+    "oauth:allow-cancel"
   ]
 }

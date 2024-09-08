@@ -9,6 +9,7 @@ mod playback;
 mod project_recordings;
 mod recording;
 mod tray;
+mod upload;
 
 use camera::{create_camera_window, list_cameras};
 use cap_ffmpeg::ffmpeg_path_as_str;
@@ -44,6 +45,7 @@ use tokio::{
     sync::{Mutex, RwLock},
     time::sleep,
 };
+use upload::upload_video;
 
 #[derive(specta::Type, Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
@@ -635,6 +637,54 @@ async fn copy_rendered_video_to_clipboard(
 
 #[tauri::command]
 #[specta::specta]
+async fn upload_rendered_video(
+    app: AppHandle,
+    video_id: String,
+    project: ProjectConfiguration,
+    auth_token: String,
+) -> Result<(), String> {
+    let output_path = match get_rendered_video(app.clone(), video_id.clone(), project).await {
+        Ok(path) => {
+            println!("Successfully retrieved rendered video path: {:?}", path);
+            path
+        }
+        Err(e) => {
+            println!("Failed to get rendered video: {}", e);
+            return Err(format!("Failed to get rendered video: {}", e));
+        }
+    };
+
+    let shareable_link = upload_video(video_id, auth_token, output_path).await?;
+
+    println!("Copying to clipboard: {:?}", shareable_link);
+
+    #[cfg(target_os = "macos")]
+    {
+        use cocoa::appkit::NSPasteboard;
+        use cocoa::base::{id, nil};
+        use cocoa::foundation::{NSArray, NSString, NSURL};
+        use objc::rc::autoreleasepool;
+
+        unsafe {
+            autoreleasepool(|| {
+                let pasteboard: id = NSPasteboard::generalPasteboard(nil);
+                NSPasteboard::clearContents(pasteboard);
+
+                let url =
+                    NSURL::fileURLWithPath_(nil, NSString::alloc(nil).init_str(&shareable_link));
+
+                let objects: id = NSArray::arrayWithObject(nil, url);
+
+                NSPasteboard::writeObjects(pasteboard, objects);
+            });
+        }
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
 async fn get_video_metadata(
     app: AppHandle,
     video_id: String,
@@ -1051,7 +1101,7 @@ fn open_main_window(app: AppHandle) {
         return;
     }
 
-    let Some(window) = WebviewWindow::builder(&app, "main", tauri::WebviewUrl::App("/".into()))
+    let Some(window) = WebviewWindow::builder(&app, "main", tauri::WebviewUrl::App("/auth".into()))
         .title("Cap")
         .inner_size(300.0, 325.0)
         .resizable(false)
@@ -1095,6 +1145,7 @@ pub fn run() {
             get_rendered_video,
             copy_file_to_path,
             copy_rendered_video_to_clipboard,
+            upload_rendered_video,
             get_video_metadata,
             create_editor_instance,
             start_playback,
@@ -1130,6 +1181,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_os::init())
+        .plugin(tauri_plugin_oauth::init())
         .plugin(tauri_plugin_process::init())
         .invoke_handler(specta_builder.invoke_handler())
         .setup(move |app| {
